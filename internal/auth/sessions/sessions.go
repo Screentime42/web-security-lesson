@@ -54,6 +54,9 @@ func SetCookie(responseWriter http.ResponseWriter, session accounts.Session) {
 		Name:  CookieName,
 		Value: session.Token,
 		Expires: session.ExpiresAt,
+		HttpOnly: true,
+		Secure: true,
+		SameSite: http.SameSiteLaxMode,
 		Path:  "/",
 	})
 }
@@ -63,6 +66,9 @@ func ClearCookie(responseWriter http.ResponseWriter) {
 		Name:    CookieName,
 		Path:    "/",
 		Expires: time.Unix(0, 0),
+		HttpOnly: true,
+		Secure: true,
+		SameSite: http.SameSiteLaxMode,
 		MaxAge:  -1,
 	})
 }

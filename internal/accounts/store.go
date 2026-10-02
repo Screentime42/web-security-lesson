@@ -182,6 +182,7 @@ func (store *Store) CurrentSession(ctx context.Context, token string) (CurrentSe
 	if token == "" {
 		return CurrentSession{}, false, nil
 	}
+
 	row, err := store.queries.GetSessionByTokenHash(ctx, HashSessionToken(token))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -189,6 +190,11 @@ func (store *Store) CurrentSession(ctx context.Context, token string) (CurrentSe
 		}
 		return CurrentSession{}, false, fmt.Errorf("find session: %w", err)
 	}
+
+if row.RevokedAt != nil {
+	return CurrentSession{}, false, nil
+}
+
 	expiresAt, err := time.Parse(time.RFC3339, row.ExpiresAt)
 	if err != nil || !store.now().Before(expiresAt) {
 		return CurrentSession{}, false, nil
