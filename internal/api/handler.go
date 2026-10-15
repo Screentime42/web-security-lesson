@@ -95,11 +95,26 @@ func (handler *Handler) Products(responseWriter http.ResponseWriter, request *ht
 }
 
 func (handler *Handler) WarehouseOrders(responseWriter http.ResponseWriter, request *http.Request) {
+	requestKey := request.Header.Get("X-API-Key")
+	key, found, err := handler.apiStore.FindKey(request.Context(), requestKey)
+	if err != nil {
+		handler.internalError(responseWriter, request, err)
+	}
+
+	if found != true {
+		http.Error(responseWriter, `{"error": "unauthorized"}`, http.StatusUnauthorized)
+	}
+
+	if key.Scope != "orders:read" {
+		http.Error(responseWriter, `{"error": "forbidden"}`, http.StatusForbidden)
+	}
+
 	orders, err := handler.orderStore.ListAll(request.Context())
 	if err != nil {
 		handler.internalError(responseWriter, request, err)
 		return
 	}
+
 	responses := make([]integrationOrderResponse, 0, len(orders))
 	for _, order := range orders {
 		responses = append(responses, integrationOrderResponse{
