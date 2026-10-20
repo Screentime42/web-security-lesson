@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"time"
 
+	//"github.com/bootdotdev/learn-web-security/internal/database"
 	"github.com/bootdotdev/learn-web-security/internal/database/dbgen"
 	"github.com/bootdotdev/learn-web-security/internal/storage"
 	"github.com/pquerna/otp"
@@ -129,7 +130,31 @@ func verifyAt(code, secret string, timestamp time.Time) bool {
 }
 
 func (store *Store) VerifyAndConsume(ctx context.Context, userID int64, code, secret string) (bool, error) {
-	return verifyAt(code, secret, store.now()), nil
+	now := store.now()
+	if !verifyAt(code, secret, now) {
+		return false, nil
+	}
+
+	// compute 30s time step from unix timestamp
+	unixTime := now.Unix()
+	timeStep := unixTime / totpPeriodSeconds
+
+	// use pre-generated querry to atomically record step for user
+	result, err := store.queries.ConsumeTOTPStep(ctx, dbgen.ConsumeTOTPStepParams{
+			UserID: 		userID,
+			TimeStep:	&timeStep,
+	})
+	if err != nil {
+		return false, err
+	}
+
+	// return true only when RowsAffected method reports one changed row
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+
+	return rowsAffected == 1, nil
 }
 
 func (store *Store) ConfirmEnrollment(ctx context.Context, userID int64) ([]string, error) {
