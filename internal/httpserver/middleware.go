@@ -9,6 +9,7 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -75,6 +76,36 @@ func recoverPanics(logger *logging.Logger, renderer *templates.Renderer) middlew
 				}
 			}()
 			next.ServeHTTP(responseWriter, request)
+		})
+	}
+}
+
+func validateRequestOrigin(appOrigin string, renderer *templates.Renderer) middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(responseWriter http.ResponseWriter, request *http.Request) {
+			if request.Method != http.MethodPost {
+				next.ServeHTTP(responseWriter, request)
+				return
+			}
+			if request.Header.Get("Origin") == appOrigin {
+				next.ServeHTTP(responseWriter, request)
+				return
+			}
+			if request.Header.Get("Origin") == "" {
+				parsedURL, err := url.Parse(request.Header.Get("Referer"))
+				if err == nil {
+					rawOrigin := parsedURL.Scheme + "://" + parsedURL.Host
+					if rawOrigin == appOrigin {
+						next.ServeHTTP(responseWriter, request)
+						return
+					}
+				}
+			}
+
+			err := httpx.RespondWithErrorPage(responseWriter, renderer, http.StatusForbidden, "Forbidden", "Untrusted origin source")
+			if err != nil {
+				http.Error(responseWriter, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+			}
 		})
 	}
 }
