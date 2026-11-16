@@ -274,8 +274,9 @@ func boolToInt64(value bool) int64 {
 }
 
 func ContentSecurityPolicyMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'")
-		next.ServeHTTP(w, r)
+	return http.HandlerFunc(func(responseWriter http.ResponseWriter, request *http.Request) {
+		nonce := httpx.CSPNonce(request.Context())
+		responseWriter.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'nonce-"+nonce+"'; style-src 'self'; img-src 'self' data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'")
+		next.ServeHTTP(responseWriter, request)
 	})
 }
